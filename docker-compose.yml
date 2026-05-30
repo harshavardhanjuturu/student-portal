@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: student_portal_db
+    restart: always
+    environment:
+      POSTGRES_DB: student_portal
+      POSTGRES_USER: portal_admin
+      POSTGRES_PASSWORD: secretpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Mount the schema file to auto-initialize the database on first run
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal_admin -d student_portal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  applet:
+    build: .
+    container_name: student_portal_app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - JWT_SECRET=super_secret_portal_key_2026_jwt_token!
+      # PostgreSQL configuration pointing to the database container
+      - PGHOST=database
+      - PGPORT=5432
+      - PGUSER=portal_admin
+      - PGPASSWORD=secretpassword
+      - PGDATABASE=student_portal
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+    driver: local
